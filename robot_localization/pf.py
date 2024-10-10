@@ -48,6 +48,17 @@ class Particle(object):
 
     # TODO: define additional helper functions if needed
 
+    def transform_particle(self, transform_matrix):
+        """ Transform particle's pose.
+            transform_matrix: A 3x3 np.array to use on the vector
+        """
+        transformed_vector = transform_matrix @ np.array([[self.x],
+                                                           [self.y],
+                                                           [self.theta]])
+        self.x = transformed_vector[0]
+        self.y = transformed_vector[1]
+        self.theta = transformed_vector[2]
+
 class ParticleFilter(Node):
     """ The class that represents a Particle Filter ROS Node
         Attributes list:
@@ -213,6 +224,22 @@ class ParticleFilter(Node):
             return
 
         # TODO: modify particles using delta
+        
+        # Last position in reference to odom frame (T_t1 -> odom)
+        t1_transform = np.array([math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
+                                [math.sin(old_odom_xy_theta[2]), math.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]],
+                                [0, 0, 1])
+        # Current position in reference to odom frame (T_t2 -> odom)
+        t2_transform = np.array([math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
+                                [math.sin(self.current_odom_xy_theta[2]), math.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
+                                [0, 0, 1])
+        t1_transform_inv = np.linalg.inv(t1_transform)
+        odom_transform_matrix = t1_transform_inv @ t2_transform
+        for particle in self.particle_cloud:
+            particle.transform_particle(odom_transform_matrix)
+
+        
+
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -246,7 +273,18 @@ class ParticleFilter(Node):
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
+
         # TODO create particles
+
+        x_sigma = 5
+        y_sigma =  5
+        theta_sigma = 5 
+        x_distr = np.random.normal(xy_theta[0], x_sigma, self.n_particles)
+        y_distr = np.random.normal(xy_theta[1], y_sigma, self.n_particles)
+        theta_distr = np.random.normal(xy_theta[2], theta_sigma, self.n_particles)
+
+        for i in range(self.n_particles):
+            self.particle_cloud.append(Particle(x=x_distr[i],y=y_distr[i],theta=theta_distr[i]))
 
         self.normalize_particles()
         self.update_robot_pose()
