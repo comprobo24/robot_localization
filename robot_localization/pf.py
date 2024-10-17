@@ -238,9 +238,6 @@ class ParticleFilter(Node):
         for particle in self.particle_cloud:
             particle.transform_particle(odom_transform_matrix)
 
-        
-
-
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
             The weights stored with each particle should define the probability that a particular
@@ -270,29 +267,59 @@ class ParticleFilter(Node):
             Arguments
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is omitted, the odometry will be used """
+        
+        # Allows robot to initialize particles around its perceived current position.
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
 
         # TODO create particles
 
-        x_sigma = 5
-        y_sigma =  5
-        theta_sigma = 5 
-        x_distr = np.random.normal(xy_theta[0], x_sigma, self.n_particles)
-        y_distr = np.random.normal(xy_theta[1], y_sigma, self.n_particles)
-        theta_distr = np.random.normal(xy_theta[2], theta_sigma, self.n_particles)
-
-        for i in range(self.n_particles):
-            self.particle_cloud.append(Particle(x=x_distr[i],y=y_distr[i],theta=theta_distr[i]))
+        # Define initialization range
+        unit = self.particle_init_range
+        for _ in range(self.n_particles):
+            # Create random particle inside the range
+            x = xy_theta[0] + np.random.random() * unit - unit/2
+            y = xy_theta[1] + np.random.random() * unit - unit/2
+            theta = np.random.randint(360) * math.pi /180.0
+            self.particle_cloud.append(Particle(x=x, y=y, theta=theta))
 
         self.normalize_particles()
-        self.update_robot_pose()
+
+        # x_sigma = 5
+        # y_sigma =  5
+        # theta_sigma = 5 
+        # x_distr = np.random.normal(xy_theta[0], x_sigma, self.n_particles)
+        # y_distr = np.random.normal(xy_theta[1], y_sigma, self.n_particles)
+        # theta_distr = np.random.normal(xy_theta[2], theta_sigma, self.n_particles)
+
+        # for i in range(self.n_particles):
+        #     self.particle_cloud.append(Particle(x=x_distr[i],y=y_distr[i],theta=theta_distr[i]))
+
+        self.normalize_particles()
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO: implement this
-        pass
+        weight_list = []
+
+        # Convert weights to normal distribut`ion
+        for particle in self.particle_cloud:
+            weight_list.append(particle.w)
+        
+        weight_list = (weight_list - np.mean(weight_list))/np.std(weight_list)
+        weight_list += abs(np.min(weight_list))
+
+        # Change the distribution so that it sums to 1.0
+        total_weight = 0
+
+        for w in weight_list:
+            total_weight += w
+        
+        weight_list = weight_list/total_weight
+
+        # Assign normalized weights to particle cloud
+        for i in range(len(weight_list)):
+            self.particle_cloud[i].w = weight_list[i]
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
