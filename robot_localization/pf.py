@@ -43,6 +43,7 @@ class Particle(object):
     def as_pose(self):
         """ A helper function to convert a particle to a geometry_msgs/Pose message """
         q = quaternion_from_euler(0, 0, self.theta)
+        print("Self.x", self.x)
         return Pose(position=Point(x=self.x, y=self.y, z=0.0),
                     orientation=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))
 
@@ -55,9 +56,10 @@ class Particle(object):
         transformed_vector = transform_matrix @ np.array([[self.x],
                                                            [self.y],
                                                            [self.theta]])
-        self.x = transformed_vector[0]
-        self.y = transformed_vector[1]
-        self.theta = transformed_vector[2]
+        print("transformed vector", transformed_vector)
+        self.x = transformed_vector[0][0]
+        self.y = transformed_vector[1][0]
+        self.theta = transformed_vector[2][0]
 
 class ParticleFilter(Node):
     """ The class that represents a Particle Filter ROS Node
@@ -158,7 +160,7 @@ class ParticleFilter(Node):
             return
         
         (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
-        print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
         # clear the current scan so that we can process the next one
         self.scan_to_process = None
 
@@ -226,20 +228,17 @@ class ParticleFilter(Node):
         # TODO: modify particles using delta
         
         # Last position in reference to odom frame (T_t1 -> odom)
-        t1_transform = np.array([math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
+        t1_transform = np.array([[math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
                                 [math.sin(old_odom_xy_theta[2]), math.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]],
-                                [0, 0, 1])
+                                [0.0, 0.0, 1.0]])
         # Current position in reference to odom frame (T_t2 -> odom)
-        t2_transform = np.array([math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
+        t2_transform = np.array([[math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
                                 [math.sin(self.current_odom_xy_theta[2]), math.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
-                                [0, 0, 1])
+                                [0.0, 0.0, 1.0]])
         t1_transform_inv = np.linalg.inv(t1_transform)
         odom_transform_matrix = t1_transform_inv @ t2_transform
         for particle in self.particle_cloud:
             particle.transform_particle(odom_transform_matrix)
-
-        
-
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -270,29 +269,57 @@ class ParticleFilter(Node):
             Arguments
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is omitted, the odometry will be used """
+        
+        # Allows robot to initialize particles around its perceived current position.
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
 
         # TODO create particles
 
-        x_sigma = 5
-        y_sigma =  5
-        theta_sigma = 5 
-        x_distr = np.random.normal(xy_theta[0], x_sigma, self.n_particles)
-        y_distr = np.random.normal(xy_theta[1], y_sigma, self.n_particles)
-        theta_distr = np.random.normal(xy_theta[2], theta_sigma, self.n_particles)
+        # Define initialization range
+        unit = self.particle_init_range
+        for _ in range(self.n_particles):
+            # Create random particle inside the range
+            x = xy_theta[0] + np.random.random() * unit - unit/2
+            y = xy_theta[1] + np.random.random() * unit - unit/2
+            theta = np.random.randint(360) * math.pi /180.0
+            self.particle_cloud.append(Particle(x=x, y=y, theta=theta))
 
-        for i in range(self.n_particles):
-            self.particle_cloud.append(Particle(x=x_distr[i],y=y_distr[i],theta=theta_distr[i]))
 
         self.normalize_particles()
-        self.update_robot_pose()
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
+
+        weight_list = []
+
+        # Convert weights to normal distribut`ion
+        for particle in self.particle_cloud:
+            weight_list.append(particle.w)
+        
+        weight_list = (weight_list - np.mean(weight_list))/np.std(weight_list)
+        weight_list += abs(np.min(weight_list))
+
+        # Change the distribution so that it sums to 1.0
+        total_weight = 0
+
+        for w in weight_list:
+            total_weight += w
+        
+        weight_list = weight_list/total_weight
+
+        # Assign normalized weights to particle cloud
+        for i in range(len(weight_list)):
+            self.particle_cloud[i].w = weight_list[i]
+
         # TODO: implement this
-        pass
+#         total_weights = 0.0
+#         for particle in self.particle_cloud:
+#             total_weights += particle.w
+
+#         for particle in self.particle_cloud:
+#             particle.w *= 1.0 / total_weights
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
