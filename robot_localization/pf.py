@@ -278,7 +278,7 @@ class ParticleFilter(Node):
         # TODO create particles
 
         # Define initialization range
-        unit = self.particle_init_range
+        unit = 5 #self.particle_init_range
         for _ in range(self.n_particles):
             # Create random particle inside the range
             x = xy_theta[0] + np.random.random() * unit - unit/2
