@@ -19,6 +19,7 @@ from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
+from helper_functions import draw_random_sample
 
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
@@ -248,7 +249,19 @@ class ParticleFilter(Node):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+
+        # if particle cloud, exists we resample properties by weight using given draw_random_sample function
+        if self.particle_cloud:
+            probabilities = [particle.w for particle in self.particle_cloud]
+            self.particle_cloud = draw_random_sample(self.particle_cloud, probabilities, self)
+
+            # add gaussian noise to particles
+            for particle in self.particle_cloud:
+                position_noise = 10
+                theta_noise = 10
+                particle.x = np.random.normal(loc=particle.x, scale=particle.w * position_noise)
+                particle.y = np.random.normal(loc=particle.y, scale=particle.w * position_noise)
+                particle.theta = np.random.normal(loc=particle.theta, scale=particle.w * theta_noise)
 
     def update_particles_with_laser(self, r, theta):
         """ Updates the particle weights in response to the scan data
