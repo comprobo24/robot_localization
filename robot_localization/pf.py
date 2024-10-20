@@ -88,7 +88,7 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 10          # the number of particles to use
+        self.n_particles = 500          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
@@ -239,19 +239,42 @@ class ParticleFilter(Node):
             return
 
         # TODO: modify particles using delta
+
+        # rotate delta matrix by the heaidng
+        # apply the matrix
+        # rotate the heading of the particle
+
+        xy_transform = np.array([[delta[0]],
+                                 [delta[1]]])        
+        
+        # delta_heading = np.array([[math.cos(delta[2]), -math.sin(delta[2])],
+        #                           [math.sin(delta[2]), math.cos(delta[2])]])
+
         
         # Last position in reference to odom frame (T_t1 -> odom)
-        t1_transform = np.array([[math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
-                                [math.sin(old_odom_xy_theta[2]), math.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]],
-                                [0.0, 0.0, 1.0]])
-        # Current position in reference to odom frame (T_t2 -> odom)
-        t2_transform = np.array([[math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
-                                [math.sin(self.current_odom_xy_theta[2]), math.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
-                                [0.0, 0.0, 1.0]])
-        t1_transform_inv = np.linalg.inv(t1_transform)
-        odom_transform_matrix = t1_transform_inv @ t2_transform
-        for particle in self.particle_cloud:
-            particle.transform_particle(odom_transform_matrix)
+        # t1_transform = np.array([[math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
+        #                         [math.sin(old_odom_xy_theta[2]), math.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]],
+        #                         [0.0, 0.0, 1.0]])
+        # # Current position in reference to odom frame (T_t2 -> odom)
+        # t2_transform = np.array([[math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
+        #                         [math.sin(self.current_odom_xy_theta[2]), math.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
+        #                         [0.0, 0.0, 1.0]])
+        # t1_transform_inv = np.linalg.inv(t1_transform)
+        # odom_transform_matrix = t1_transform_inv @ t2_transform
+
+        for particle in self.particle_cloud:            
+            particle_heading = np.array([[math.cos(particle.theta), -math.sin(particle.theta)],
+                                         [math.sin(particle.theta), math.cos(particle.theta)]])
+            particle_delta = particle_heading @ xy_transform
+            
+            # Apply the transformation to the particle
+            particle.x += particle_delta[0][0]
+            particle.y += particle_delta[1][0]
+            # Adjust to the delta heading
+            particle.theta += delta[2]
+            
+            
+
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -269,8 +292,8 @@ class ParticleFilter(Node):
 
             # add gaussian noise to particles
             for particle in self.particle_cloud:
-                position_noise = 10
-                theta_noise = 10
+                position_noise = 1
+                theta_noise = 1
                 particle.x = np.random.normal(loc=particle.x, scale=particle.w * position_noise)
                 particle.y = np.random.normal(loc=particle.y, scale=particle.w * position_noise)
                 particle.theta = np.random.normal(loc=particle.theta, scale=particle.w * theta_noise)
