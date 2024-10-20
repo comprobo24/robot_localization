@@ -206,6 +206,17 @@ class ParticleFilter(Node):
         else:
             self.get_logger().warn("Can't set map->odom transform since no odom data received")
 
+        sum_x, sum_y = 0.0
+        # Sum up all particle poses
+        for p in self.particle_cloud:
+            sum_x += p.x
+            sum_y += p.y
+        # Get avg of poses
+        avg_x, avg_y = (sum_x, sum_y) / self.n_particles
+        # Set robot pose (x,y,z) as average of the particles x and y
+        self.robot_pose = Pose(avg_x, avg_y, 0.0)
+
+
     def update_particles_with_odom(self):
         """ Update the particles using the newly given odometry pose.
             The function computes the value delta which is a tuple (x,y,theta)
@@ -294,7 +305,7 @@ class ParticleFilter(Node):
 
         weight_list = []
 
-        # Convert weights to normal distribut`ion
+        # Convert weights to normal distribution
         for particle in self.particle_cloud:
             weight_list.append(particle.w)
         
