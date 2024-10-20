@@ -268,8 +268,24 @@ class ParticleFilter(Node):
             r: the distance readings to obstacles
             theta: the angle relative to the robot frame for each corresponding reading 
         """
-        # TODO: implement this
-        pass
+        total_distance = 0
+
+        for p in self.particle_cloud:
+            # Compute the distance away in (x,y) the particle is from the nearest obstacle
+            for deg in range(len(theta)):
+                x = p.x + r[deg] * math.cos(theta[deg] + p.theta)
+                y = p.y + r[deg] * math.sin(theta[deg] + p.theta)
+
+                # if nan or infinity make weight virtually zero so it cancels out
+                if (math.isinf(x) or math.isinf(y)) or (math.isnan(x) or math.isinf(y)):
+                    total_distance += 100
+                else:
+                    total_distance += self.occupancy_field.get_closest_obstacle_distance(x=x, y=y)
+            
+            # calculate the average distance
+            distance_mean = total_distance/len(self.particle_cloud)
+            # calculate weight from the average distance
+            p.w = 1/distance_mean
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
