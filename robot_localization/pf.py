@@ -207,13 +207,20 @@ class ParticleFilter(Node):
         else:
             self.get_logger().warn("Can't set map->odom transform since no odom data received")
 
-        sum_x, sum_y = 0.0
+        sum_x = 0.0 
+        sum_y = 0.0
         # Sum up all particle poses
         for p in self.particle_cloud:
             sum_x += p.x
             sum_y += p.y
         # Set robot pose (x,y,z) as average of the particles x and y
-        self.robot_pose = Pose(sum_x / self.n_particles, sum_y / self.n_particles, 0.0)
+        print(((sum_x / self.n_particles), (sum_y / self.n_particles), np.float64(0.0)))
+        self.robot_pose.position.x = sum_x / self.n_particles
+        self.robot_pose.position.y = sum_y / self.n_particles
+        self.robot_pose.position.z = 0.0
+
+        # self.robot_pose = Pose(self.robot_pose, Point(((sum_x / self.n_particles), (sum_y / self.n_particles), np.float64(0.0))))
+        print(f"Robot Pose: {self.robot_pose}")
 
 
     def update_particles_with_odom(self):
@@ -262,7 +269,7 @@ class ParticleFilter(Node):
         # if particle cloud, exists we resample properties by weight using given draw_random_sample function
         if self.particle_cloud:
             probabilities = [particle.w for particle in self.particle_cloud]
-            self.particle_cloud = draw_random_sample(self.particle_cloud, probabilities, self)
+            self.particle_cloud = draw_random_sample(self.particle_cloud, probabilities, self.n_particles)
 
             # add gaussian noise to particles
             for particle in self.particle_cloud:
