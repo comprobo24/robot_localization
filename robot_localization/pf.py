@@ -277,7 +277,7 @@ class ParticleFilter(Node):
                 y = p.y + r[deg] * math.sin(theta[deg] + p.theta)
 
                 # if nan or infinity make weight virtually zero so it cancels out
-                if (math.isinf(x) or math.isinf(y)) or (math.isnan(x) or math.isinf(y)):
+                if (math.isinf(x) or math.isinf(y)) or (math.isnan(self.occupancy_field.get_closest_obstacle_distance(x=x, y=y))):
                     total_distance += 100
                 else:
                     total_distance += self.occupancy_field.get_closest_obstacle_distance(x=x, y=y)
