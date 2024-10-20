@@ -44,7 +44,6 @@ class Particle(object):
     def as_pose(self):
         """ A helper function to convert a particle to a geometry_msgs/Pose message """
         q = quaternion_from_euler(0, 0, self.theta)
-        print("Self.x", self.x)
         return Pose(position=Point(x=self.x, y=self.y, z=0.0),
                     orientation=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))
 
@@ -57,7 +56,6 @@ class Particle(object):
         transformed_vector = transform_matrix @ np.array([[self.x],
                                                            [self.y],
                                                            [self.theta]])
-        print("transformed vector", transformed_vector)
         self.x = transformed_vector[0][0]
         self.y = transformed_vector[1][0]
         self.theta = transformed_vector[2][0]
@@ -90,7 +88,7 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 300          # the number of particles to use
+        self.n_particles = 10          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
@@ -176,6 +174,7 @@ class ParticleFilter(Node):
             self.initialize_particle_cloud(msg.header.stamp)
         elif self.moved_far_enough_to_update(new_odom_xy_theta):
             # we have moved far enough to do an update!
+            print("Update step!")
             self.update_particles_with_odom()    # update based on odometry
             self.update_particles_with_laser(r, theta)   # update based on laser scan
             self.update_robot_pose()                # update robot's pose based on particles
@@ -214,14 +213,11 @@ class ParticleFilter(Node):
             sum_x += p.x
             sum_y += p.y
         # Set robot pose (x,y,z) as average of the particles x and y
-        print(((sum_x / self.n_particles), (sum_y / self.n_particles), np.float64(0.0)))
         self.robot_pose.position.x = sum_x / self.n_particles
         self.robot_pose.position.y = sum_y / self.n_particles
         self.robot_pose.position.z = 0.0
 
         # self.robot_pose = Pose(self.robot_pose, Point(((sum_x / self.n_particles), (sum_y / self.n_particles), np.float64(0.0))))
-        print(f"Robot Pose: {self.robot_pose}")
-
 
     def update_particles_with_odom(self):
         """ Update the particles using the newly given odometry pose.
@@ -337,34 +333,34 @@ class ParticleFilter(Node):
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
 
-        weight_list = []
+        # weight_list = []
 
-        # Convert weights to normal distribution
-        for particle in self.particle_cloud:
-            weight_list.append(particle.w)
+        # # Convert weights to normal distribution
+        # for particle in self.particle_cloud:
+        #     weight_list.append(particle.w)
         
-        weight_list = (weight_list - np.mean(weight_list))/np.std(weight_list)
-        weight_list += abs(np.min(weight_list))
+        # weight_list = (weight_list - np.mean(weight_list))/np.std(weight_list)
+        # weight_list += abs(np.min(weight_list))
 
-        # Change the distribution so that it sums to 1.0
-        total_weight = 0
+        # # Change the distribution so that it sums to 1.0
+        # total_weight = 0
 
-        for w in weight_list:
-            total_weight += w
+        # for w in weight_list:
+        #     total_weight += w
         
-        weight_list = weight_list/total_weight
+        # weight_list = weight_list/total_weight
 
-        # Assign normalized weights to particle cloud
-        for i in range(len(weight_list)):
-            self.particle_cloud[i].w = weight_list[i]
+        # # Assign normalized weights to particle cloud
+        # for i in range(len(weight_list)):
+        #     self.particle_cloud[i].w = weight_list[i]
 
         # TODO: implement this
-#         total_weights = 0.0
-#         for particle in self.particle_cloud:
-#             total_weights += particle.w
+        total_weights = 0.0
+        for particle in self.particle_cloud:
+            total_weights += particle.w
 
-#         for particle in self.particle_cloud:
-#             particle.w *= 1.0 / total_weights
+        for particle in self.particle_cloud:
+            particle.w *= 1.0 / total_weights
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
