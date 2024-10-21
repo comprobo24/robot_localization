@@ -15,6 +15,7 @@ from rclpy.duration import Duration
 import math
 import time
 import numpy as np
+from cmath import rect, phase
 from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
@@ -187,7 +188,9 @@ class ParticleFilter(Node):
                math.fabs(new_odom_xy_theta[1] - self.current_odom_xy_theta[1]) > self.d_thresh or \
                math.fabs(new_odom_xy_theta[2] - self.current_odom_xy_theta[2]) > self.a_thresh
 
-
+    def mean_angle(self, deg):
+        return phase(sum(rect(1, d) for d in deg)/len(deg))
+    
     def update_robot_pose(self):
         """ Update the estimate of the robot's pose given the updated particles.
             There are two logical methods for this:
@@ -197,28 +200,30 @@ class ParticleFilter(Node):
         # first make sure that the particle weights are normalized
         self.normalize_particles()
 
-        # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
-        # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
-        if hasattr(self, 'odom_pose'):
-            self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
-                                                            self.odom_pose)
-        else:
-            self.get_logger().warn("Can't set map->odom transform since no odom data received")
-
-        sum_x = 0.0 
+        sum_x = 0.0
         sum_y = 0.0
+        theta_list = []
+
         # Sum up all particle poses
         for p in self.particle_cloud:
             sum_x += p.x
             sum_y += p.y
+            theta_list.append(p.theta)
+
         # Set robot pose (x,y,z) as average of the particles x and y
-        self.robot_pose.position.x = sum_x / self.n_particles
-        self.robot_pose.position.y = sum_y / self.n_particles
-        self.robot_pose.position.z = 0.0
+        mean_x = sum_x / self.n_particles
+        mean_y = sum_y / self.n_particles
+        mean_theta = self.mean_angle(theta_list)
 
-        # self.robot_pose = Pose(self.robot_pose, Point(((sum_x / self.n_particles), (sum_y / self.n_particles), np.float64(0.0))))
+        # create temporary particle to use as_pose function
+        temp_particle = Particle(x=mean_x, y=mean_y, theta=mean_theta)
+        new_pose = temp_particle.as_pose()
 
+        self.robot_pose = new_pose
+
+        self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
+                                                        self.odom_pose)
+        
     def update_particles_with_odom(self):
         """ Update the particles using the newly given odometry pose.
             The function computes the value delta which is a tuple (x,y,theta)
@@ -273,9 +278,6 @@ class ParticleFilter(Node):
             # Adjust to the delta heading
             particle.theta += delta[2]
             
-            
-
-
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
             The weights stored with each particle should define the probability that a particular
