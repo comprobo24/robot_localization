@@ -251,21 +251,6 @@ class ParticleFilter(Node):
 
         xy_transform = np.array([[delta[0]],
                                  [delta[1]]])        
-        
-        # delta_heading = np.array([[math.cos(delta[2]), -math.sin(delta[2])],
-        #                           [math.sin(delta[2]), math.cos(delta[2])]])
-
-        
-        # Last position in reference to odom frame (T_t1 -> odom)
-        # t1_transform = np.array([[math.cos(old_odom_xy_theta[2]), -math.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]],
-        #                         [math.sin(old_odom_xy_theta[2]), math.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]],
-        #                         [0.0, 0.0, 1.0]])
-        # # Current position in reference to odom frame (T_t2 -> odom)
-        # t2_transform = np.array([[math.cos(self.current_odom_xy_theta[2]), -math.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
-        #                         [math.sin(self.current_odom_xy_theta[2]), math.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
-        #                         [0.0, 0.0, 1.0]])
-        # t1_transform_inv = np.linalg.inv(t1_transform)
-        # odom_transform_matrix = t1_transform_inv @ t2_transform
 
         for particle in self.particle_cloud:            
             particle_heading = np.array([[math.cos(particle.theta), -math.sin(particle.theta)],
@@ -341,10 +326,8 @@ class ParticleFilter(Node):
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
 
-        # TODO create particles
-
         # Define initialization range
-        unit = 5 #self.particle_init_range
+        unit = 5
         for _ in range(self.n_particles):
             # Create random particle inside the range
             x = xy_theta[0] + np.random.random() * unit - unit/2
@@ -357,29 +340,6 @@ class ParticleFilter(Node):
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-
-        # weight_list = []
-
-        # # Convert weights to normal distribution
-        # for particle in self.particle_cloud:
-        #     weight_list.append(particle.w)
-        
-        # weight_list = (weight_list - np.mean(weight_list))/np.std(weight_list)
-        # weight_list += abs(np.min(weight_list))
-
-        # # Change the distribution so that it sums to 1.0
-        # total_weight = 0
-
-        # for w in weight_list:
-        #     total_weight += w
-        
-        # weight_list = weight_list/total_weight
-
-        # # Assign normalized weights to particle cloud
-        # for i in range(len(weight_list)):
-        #     self.particle_cloud[i].w = weight_list[i]
-
-        # TODO: implement this
         total_weights = 0.0
         for particle in self.particle_cloud:
             total_weights += particle.w
