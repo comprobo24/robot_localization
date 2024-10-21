@@ -216,6 +216,7 @@ class ParticleFilter(Node):
         mean_theta = self.mean_angle(theta_list)
 
         # create temporary particle to use as_pose function
+        # refer to https://hcr.cs.umass.edu/courses/compsci603/lectures/06-particle_filter.pdf slide 97 for how we came up with this
         temp_particle = Particle(x=mean_x, y=mean_y, theta=mean_theta)
         new_pose = temp_particle.as_pose()
 
