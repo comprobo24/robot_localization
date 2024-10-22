@@ -210,7 +210,7 @@ class ParticleFilter(Node):
             sum_y += p.y
             theta_list.append(p.theta)
 
-        # Set robot pose (x,y,z) as average of the particles x and y
+        # Set robot pose (x,y,z) as average of the particles x, y, and theta
         mean_x = sum_x / self.n_particles
         mean_y = sum_y / self.n_particles
         mean_theta = self.mean_angle(theta_list)
@@ -220,6 +220,7 @@ class ParticleFilter(Node):
         temp_particle = Particle(x=mean_x, y=mean_y, theta=mean_theta)
         new_pose = temp_particle.as_pose()
 
+        # Set a new pose for the robot pose and map the particle
         self.robot_pose = new_pose
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
@@ -327,10 +328,10 @@ class ParticleFilter(Node):
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
 
-        # Define initialization range
+        # Define initialization range that changes the range of the particles (if 5, 5x5 box)
         unit = 5
         for _ in range(self.n_particles):
-            # Create random particle inside the range
+            # Create random particle inside the defined range
             x = xy_theta[0] + np.random.random() * unit - unit/2
             y = xy_theta[1] + np.random.random() * unit - unit/2
             theta = np.random.randint(360) * math.pi /180.0
